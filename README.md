@@ -5,7 +5,7 @@ Application web de reconnaissance de chiffres manuscrits utilisant un réseau de
 ## Architecture
 
 ```
-frontend/   → React + Vite + Material UI (servi par nginx)
+frontend/   → React + Vite + Tailwind CSS (servi par nginx)
 backend/    → FastAPI + TensorFlow + SQLAlchemy (async)
 database    → PostgreSQL (déployé séparément sur Coolify)
 ```
@@ -14,18 +14,8 @@ database    → PostgreSQL (déployé séparément sur Coolify)
 
 ### Prérequis
 
-- Docker & Docker Compose
+- Docker & Docker Compose (ou Python 3.11+ et Node.js 20+)
 - Ton modèle `model.h5` placé dans `backend/model/`
-
-### Lancer le projet
-
-```bash
-docker compose up --build
-```
-
-- Frontend : http://localhost
-- Backend (API docs) : http://localhost:8000/docs
-- PostgreSQL : localhost:5432
 
 ### Sans Docker
 
@@ -35,6 +25,18 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+
+# Lance PostgreSQL localement
+docker run -d --name digit-db \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=digit_recognition \
+  -p 5432:5432 \
+  postgres:16-alpine
+
+# Crée un .env
+cp .env.example .env
+
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -45,22 +47,28 @@ npm install
 npm run dev
 ```
 
+- Frontend : http://localhost:5173
+- Backend (API docs) : http://localhost:8000/docs
+
 ## Déploiement sur Coolify
 
-1. **PostgreSQL** : Créer un service PostgreSQL dans Coolify. Noter l'URL de connexion.
+### 1. PostgreSQL
+Créer un service PostgreSQL dans Coolify (menu Databases).
 
-2. **Backend** : Déployer depuis GitHub.
-   - Docker Build Pack
-   - Dockerfile path : `backend/Dockerfile`
-   - Variables d'environnement :
-     - `DATABASE_URL` = l'URL PostgreSQL de Coolify
-     - `MODEL_PATH` = `model/model.h5`
-     - `CORS_ORIGINS` = `["https://ton-domaine.com"]`
+### 2. Service Docker Compose
+Déployer depuis GitHub avec Build Pack **Docker Compose**.
 
-3. **Frontend** : Déployer depuis GitHub.
-   - Docker Build Pack
-   - Dockerfile path : `frontend/Dockerfile`
-   - Build arg : `VITE_API_URL` = `https://api.ton-domaine.com/api`
+**Domaines :**
+- backend → `https://api.sbohui.fr`
+- frontend → `https://digiteye.sbohui.fr`
+
+**Variables d'environnement :**
+```
+DATABASE_URL=postgresql+asyncpg://postgres:PASSWORD@HOSTNAME:5432/postgres
+```
+
+### 3. Modèle
+Le fichier `model.h5` doit être dans `backend/model/`.
 
 ## API Endpoints
 

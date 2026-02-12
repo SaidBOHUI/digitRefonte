@@ -1,37 +1,17 @@
 services:
-  db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: digit_recognition
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-
   backend:
     build: ./backend
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/digit_recognition
+      DATABASE_URL: ${DATABASE_URL}
       MODEL_PATH: model/model.h5
-      CORS_ORIGINS: '["http://localhost:5173","http://localhost:80"]'
-    depends_on:
-      - db
-    volumes:
-      - ./backend:/app
+      CORS_ORIGINS: '["https://digiteye.sbohui.fr"]'
 
   frontend:
     build:
       context: ./frontend
       args:
-        VITE_API_URL: http://localhost:8000/api
+        VITE_API_URL: https://api.sbohui.fr/api
     ports:
       - "80:80"
-    depends_on:
-      - backend
-
-volumes:
-  pgdata:

@@ -1,19 +1,9 @@
-# fastapi
-# uvicorn[standard]
-# sqlalchemy[asyncio]
-# asyncpg
-# pydantic
-# pydantic-settings
-# tensorflow
-# numpy
-# Pillow
-# python-multipart
-
 fastapi
-uvicorn
+uvicorn[standard]
 python-multipart
-sqlalchemy
+sqlalchemy[asyncio]
 asyncpg
 pydantic-settings
 numpy
-tensorflow-cpu
+tensorflow==2.15.0
+Pillow

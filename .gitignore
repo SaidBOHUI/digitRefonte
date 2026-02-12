@@ -24,9 +24,6 @@ frontend/build/
 .DS_Store
 Thumbs.db
 
-# Model files (add your .h5 manually or use Git LFS)
-# backend/model/*.h5
-
 # Logs
 *.log
 npm-debug.log*

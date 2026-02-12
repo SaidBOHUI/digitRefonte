@@ -1,40 +1,41 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from app.config import get_settings
-from app.database import init_db
+from app.config import settings
+from app.database import engine
+from app.models import Base
 from app.ml_service import load_model
 from app.routes.drawings import router as drawings_router
-
-settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
-    await init_db()
-    load_model()
+    # Startup: load model + create tables
+    load_model(settings.MODEL_PATH)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print("Database tables created")
     yield
-    # Shutdown (cleanup if needed)
+    # Shutdown
+    await engine.dispose()
 
 
 app = FastAPI(
     title="Digit Recognition API",
-    description="API for handwritten digit recognition using a Keras model",
+    description="MNIST digit recognition with Keras MLP",
     version="1.0.0",
     lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(drawings_router, prefix="/api")
+app.include_router(drawings_router)
 
 
 @app.get("/health")

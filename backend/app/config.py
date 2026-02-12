@@ -1,16 +1,19 @@
 from pydantic_settings import BaseSettings
-from functools import lru_cache
+from typing import List
+import json
 
 
 class Settings(BaseSettings):
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/digit_recognition"
-    model_path: str = "model/model.h5"
-    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/digit_recognition"
+    MODEL_PATH: str = "model/model.h5"
+    CORS_ORIGINS: str = '["http://localhost:5173"]'
+
+    @property
+    def cors_origins_list(self) -> List[str]:
+        return json.loads(self.CORS_ORIGINS)
 
     class Config:
         env_file = ".env"
 
 
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
+settings = Settings()

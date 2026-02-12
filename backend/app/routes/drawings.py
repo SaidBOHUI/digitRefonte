@@ -1,49 +1,37 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
-
+from sqlalchemy import select, desc
 from app.database import get_db
 from app.models import Drawing
-from app.schemas import PredictRequest, PredictResponse, DrawingResponse, DrawingCreate
+from app.schemas import PredictRequest, PredictResponse, DrawingResponse
 from app.ml_service import predict_digit
 
-router = APIRouter()
+router = APIRouter(prefix="/api", tags=["drawings"])
 
 
 @router.post("/predict", response_model=PredictResponse)
 async def predict(request: PredictRequest, db: AsyncSession = Depends(get_db)):
-    try:
-        result = predict_digit(request.pixels)
-    except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+    result = predict_digit(request.pixels)
 
-    # Save to database
     drawing = Drawing(
         pixels=request.pixels,
         predicted_digit=result["predicted_digit"],
         confidence=result["confidence"],
-    )
-    db.add(drawing)
-    await db.commit()
-
-    return result
-
-
-@router.post("/drawings", response_model=DrawingResponse, status_code=201)
-async def create_drawing(request: DrawingCreate, db: AsyncSession = Depends(get_db)):
-    drawing = Drawing(
-        pixels=request.pixels,
-        predicted_digit=request.resultat,
+        probabilities=result["probabilities"],
     )
     db.add(drawing)
     await db.commit()
     await db.refresh(drawing)
-    return drawing
+
+    return result
 
 
 @router.get("/drawings", response_model=list[DrawingResponse])
-async def get_drawings(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Drawing).order_by(Drawing.created_at.desc()))
+async def get_drawings(
+    limit: int = 50, offset: int = 0, db: AsyncSession = Depends(get_db)
+):
+    query = select(Drawing).order_by(desc(Drawing.created_at)).offset(offset).limit(limit)
+    result = await db.execute(query)
     return result.scalars().all()
 
 
@@ -62,7 +50,6 @@ async def delete_drawing(drawing_id: int, db: AsyncSession = Depends(get_db)):
     drawing = result.scalar_one_or_none()
     if not drawing:
         raise HTTPException(status_code=404, detail="Drawing not found")
-
-    await db.execute(delete(Drawing).where(Drawing.id == drawing_id))
+    await db.delete(drawing)
     await db.commit()
-    return {"message": "Drawing deleted successfully"}
+    return {"detail": "Drawing deleted"}

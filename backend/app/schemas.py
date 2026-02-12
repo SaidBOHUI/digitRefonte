@@ -1,27 +1,24 @@
 from pydantic import BaseModel, Field
+from typing import List, Optional
 from datetime import datetime
 
 
 class PredictRequest(BaseModel):
-    pixels: list[float] = Field(..., min_length=784, max_length=784, description="784 grayscale pixel values (28x28)")
+    pixels: List[float] = Field(..., min_length=784, max_length=784)
 
 
 class PredictResponse(BaseModel):
     predicted_digit: int
     confidence: float
-    probabilities: list[float]
+    probabilities: List[float]
 
 
 class DrawingResponse(BaseModel):
     id: int
     predicted_digit: int
-    confidence: float | None
+    confidence: float
+    probabilities: Optional[List[float]] = None
     created_at: datetime
 
     class Config:
         from_attributes = True
-
-
-class DrawingCreate(BaseModel):
-    pixels: list[float] = Field(..., min_length=784, max_length=784)
-    resultat: int = Field(..., ge=0, le=9)

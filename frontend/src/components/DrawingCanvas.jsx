@@ -1,197 +1,200 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react'
-import { Brush, Trash2, Send, Loader2 } from 'lucide-react'
+import { useRef, useState, useEffect, useCallback } from 'react'
+import { Eraser, Send, Loader2 } from 'lucide-react'
 import { predictDigit } from '../api'
 
 const CANVAS_SIZE = 280
-const BRUSH_RADIUS = 12
+const GRID_SIZE = 28
+const LINE_WIDTH = 16
 
-const DrawingCanvas = () => {
-	const canvasRef = useRef(null)
-	const [isDrawing, setIsDrawing] = useState(false)
-	const [hasDrawn, setHasDrawn] = useState(false)
-	const [isLoading, setIsLoading] = useState(false)
-	const [result, setResult] = useState(null)
-	const [error, setError] = useState(null)
+export default function DrawingCanvas() {
+  const canvasRef = useRef(null)
+  const [isDrawing, setIsDrawing] = useState(false)
+  const [prediction, setPrediction] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
-	useEffect(() => {
-		const canvas = canvasRef.current
-		const ctx = canvas.getContext('2d')
-		ctx.fillStyle = '#000000'
-		ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
-		ctx.lineCap = 'round'
-		ctx.lineJoin = 'round'
-		ctx.strokeStyle = '#ffffff'
-		ctx.lineWidth = BRUSH_RADIUS * 2
-	}, [])
+  // Initialize canvas with black background
+  const clearCanvas = useCallback(() => {
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    ctx.fillStyle = '#000000'
+    ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
+    setPrediction(null)
+    setError(null)
+  }, [])
 
-	const getPosition = (e) => {
-		const canvas = canvasRef.current
-		const rect = canvas.getBoundingClientRect()
-		const scaleX = canvas.width / rect.width
-		const scaleY = canvas.height / rect.height
+  useEffect(() => {
+    clearCanvas()
+  }, [clearCanvas])
 
-		if (e.touches) {
-			return {
-				x: (e.touches[0].clientX - rect.left) * scaleX,
-				y: (e.touches[0].clientY - rect.top) * scaleY,
-			}
-		}
-		return {
-			x: (e.clientX - rect.left) * scaleX,
-			y: (e.clientY - rect.top) * scaleY,
-		}
-	}
+  const getPosition = (e) => {
+    const canvas = canvasRef.current
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = CANVAS_SIZE / rect.width
+    const scaleY = CANVAS_SIZE / rect.height
 
-	const startDrawing = (e) => {
-		e.preventDefault()
-		const ctx = canvasRef.current.getContext('2d')
-		const pos = getPosition(e)
-		ctx.beginPath()
-		ctx.moveTo(pos.x, pos.y)
-		setIsDrawing(true)
-		setHasDrawn(true)
-		setResult(null)
-		setError(null)
-	}
+    if (e.touches) {
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY,
+      }
+    }
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    }
+  }
 
-	const draw = (e) => {
-		e.preventDefault()
-		if (!isDrawing) return
-		const ctx = canvasRef.current.getContext('2d')
-		const pos = getPosition(e)
-		ctx.lineTo(pos.x, pos.y)
-		ctx.stroke()
-	}
+  const startDrawing = (e) => {
+    e.preventDefault()
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    const pos = getPosition(e)
 
-	const stopDrawing = (e) => {
-		e?.preventDefault()
-		setIsDrawing(false)
-	}
+    ctx.beginPath()
+    ctx.moveTo(pos.x, pos.y)
+    ctx.strokeStyle = '#FFFFFF'
+    ctx.lineWidth = LINE_WIDTH
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    setIsDrawing(true)
+  }
 
-	const clearCanvas = () => {
-		const ctx = canvasRef.current.getContext('2d')
-		ctx.fillStyle = '#000000'
-		ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
-		setHasDrawn(false)
-		setResult(null)
-		setError(null)
-	}
+  const draw = (e) => {
+    if (!isDrawing) return
+    e.preventDefault()
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    const pos = getPosition(e)
 
-	const getPixels = useCallback(() => {
-		const canvas = canvasRef.current
-		const tempCanvas = document.createElement('canvas')
-		tempCanvas.width = 28
-		tempCanvas.height = 28
-		const tempCtx = tempCanvas.getContext('2d')
-		tempCtx.imageSmoothingEnabled = true
-		tempCtx.imageSmoothingQuality = 'high'
-		tempCtx.drawImage(canvas, 0, 0, 28, 28)
+    ctx.lineTo(pos.x, pos.y)
+    ctx.stroke()
+  }
 
-		const imageData = tempCtx.getImageData(0, 0, 28, 28)
-		const pixels = []
-		for (let i = 0; i < imageData.data.length; i += 4) {
-			pixels.push(imageData.data[i] / 255.0)
-		}
-		return pixels
-	}, [])
+  const stopDrawing = (e) => {
+    if (e) e.preventDefault()
+    setIsDrawing(false)
+  }
 
-	  const handlePredict = async () => {
-	    setIsLoading(true)
-	    setError(null)
-	    try {
-	      const pixels = getPixels()
-	      const data = await predictDigit(pixels)
-	      setResult(data)
-	    } catch (err) {
-	      console.error('Prediction error:', err)
-	      setError('Erreur lors de la prédiction. Vérifiez que le serveur est lancé.')
-	    } finally {
-	      setIsLoading(false)
-	    }
-	  }
+  const getPixels = () => {
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
 
+    // Create a temporary small canvas (28x28)
+    const tempCanvas = document.createElement('canvas')
+    tempCanvas.width = GRID_SIZE
+    tempCanvas.height = GRID_SIZE
+    const tempCtx = tempCanvas.getContext('2d')
 
+    // Disable image smoothing for sharper downscale
+    tempCtx.imageSmoothingEnabled = true
+    tempCtx.imageSmoothingQuality = 'medium'
+    tempCtx.drawImage(canvas, 0, 0, GRID_SIZE, GRID_SIZE)
 
+    const imageData = tempCtx.getImageData(0, 0, GRID_SIZE, GRID_SIZE)
+    const pixels = []
 
+    // Extract grayscale values (use red channel since it's white on black)
+    for (let i = 0; i < imageData.data.length; i += 4) {
+      pixels.push(imageData.data[i]) // 0-255
+    }
 
-	return (
-		<div className="flex flex-col items-center gap-6">
-			{/* Canvas */}
-			<div className="rounded-xl overflow-hidden border-2 border-slate-700 shadow-lg shadow-blue-500/10">
-				<canvas
-					ref={canvasRef}
-					width={CANVAS_SIZE}
-					height={CANVAS_SIZE}
-					className="cursor-crosshair touch-none block"
-					style={{ width: CANVAS_SIZE, height: CANVAS_SIZE }}
-					onMouseDown={startDrawing}
-					onMouseMove={draw}
-					onMouseUp={stopDrawing}
-					onMouseLeave={stopDrawing}
-					onTouchStart={startDrawing}
-					onTouchMove={draw}
-					onTouchEnd={stopDrawing}
-				/>
-			</div>
+    return pixels
+  }
 
-			{/* Helper */}
-			<p className="text-slate-500 text-sm flex items-center gap-2">
-				<Brush size={16} />
-				Dessinez un chiffre (0-9) dans le cadre
-			</p>
+  const handlePredict = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const pixels = getPixels()
+      const result = await predictDigit(pixels)
+      setPrediction(result)
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erreur de prédiction')
+    } finally {
+      setLoading(false)
+    }
+  }
 
-			{/* Buttons */}
-			<div className="flex gap-3">
-				<button
-					onClick={handlePredict}
-					disabled={!hasDrawn || isLoading}
-					className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 text-white font-medium rounded-lg transition-colors duration-200 cursor-pointer disabled:cursor-not-allowed"
-				>
-					{isLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-					{isLoading ? 'Analyse...' : 'Classifier'}
-				</button>
-				<button
-					onClick={clearCanvas}
-					className="flex items-center gap-2 px-6 py-2.5 border border-slate-600 hover:border-slate-500 hover:bg-slate-800 text-slate-300 font-medium rounded-lg transition-colors duration-200 cursor-pointer"
-				>
-					<Trash2 size={18} />
-					Effacer
-				</button>
-			</div>
+  return (
+    <div className="flex flex-col items-center gap-6">
+      {/* Canvas */}
+      <div className="relative">
+        <canvas
+          ref={canvasRef}
+          width={CANVAS_SIZE}
+          height={CANVAS_SIZE}
+          className="border-2 border-gray-600 rounded-xl cursor-crosshair touch-none"
+          style={{ width: '280px', height: '280px' }}
+          onMouseDown={startDrawing}
+          onMouseMove={draw}
+          onMouseUp={stopDrawing}
+          onMouseLeave={stopDrawing}
+          onTouchStart={startDrawing}
+          onTouchMove={draw}
+          onTouchEnd={stopDrawing}
+        />
+      </div>
 
-			{/* Result */}
-			{result && (
-				<div className="w-full max-w-sm bg-slate-800/80 backdrop-blur border border-slate-700 rounded-xl p-6 text-center space-y-3">
-					<p className="text-6xl font-bold text-blue-400">
-						{result.predicted_digit}
-					</p>
-					<p className="text-slate-400 text-sm">
-						Confiance : {(result.confidence * 100).toFixed(1)}%
-					</p>
-					<div className="flex flex-wrap gap-1.5 justify-center pt-2">
-						{result.probabilities.map((prob, idx) => (
-							<span
-								key={idx}
-								className={`text-xs px-2.5 py-1 rounded-full font-medium ${idx === result.predicted_digit
-										? 'bg-blue-600 text-white'
-										: 'bg-slate-700 text-slate-400'
-									}`}
-							>
-								{idx}: {(prob * 100).toFixed(0)}%
-							</span>
-						))}
-					</div>
-				</div>
-			)}
+      {/* Buttons */}
+      <div className="flex gap-3">
+        <button
+          onClick={clearCanvas}
+          className="flex items-center gap-2 px-5 py-2.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+        >
+          <Eraser size={18} />
+          Effacer
+        </button>
+        <button
+          onClick={handlePredict}
+          disabled={loading}
+          className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+        >
+          {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+          Prédire
+        </button>
+      </div>
 
-			{/* Error */}
-			{error && (
-				<p className="text-red-400 text-sm text-center max-w-sm">
-					{error}
-				</p>
-			)}
-		</div>
-	)
+      {/* Error */}
+      {error && (
+        <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-2 rounded-lg">
+          {error}
+        </div>
+      )}
+
+      {/* Result */}
+      {prediction && (
+        <div className="bg-gray-800/80 backdrop-blur border border-gray-700 rounded-xl p-6 w-full max-w-sm text-center">
+          <div className="text-6xl font-bold text-white mb-2">
+            {prediction.predicted_digit}
+          </div>
+          <div className="text-indigo-400 text-lg mb-4">
+            Confiance : {(prediction.confidence * 100).toFixed(1)}%
+          </div>
+
+          {/* Probability bars */}
+          <div className="space-y-1.5">
+            {prediction.probabilities.map((prob, idx) => (
+              <div key={idx} className="flex items-center gap-2 text-sm">
+                <span className="text-gray-400 w-4 text-right">{idx}</span>
+                <div className="flex-1 bg-gray-700 rounded-full h-2.5 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      idx === prediction.predicted_digit
+                        ? 'bg-indigo-500'
+                        : 'bg-gray-500'
+                    }`}
+                    style={{ width: `${(prob * 100).toFixed(1)}%` }}
+                  />
+                </div>
+                <span className="text-gray-400 w-12 text-right">
+                  {(prob * 100).toFixed(1)}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
-
-export default DrawingCanvas
