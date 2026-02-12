@@ -24,11 +24,12 @@ app = FastAPI(
     description="API for handwritten digit recognition using a Keras model",
     version="1.0.0",
     lifespan=lifespan,
-    origins = [
-		"https://digiteye.sbohui.fr",
-		"http://localhost:5173", # pour tes tests locaux
-	]
 )
+
+allowed_origins = [
+    "https://digiteye.sbohui.fr",
+    "http://localhost:5173",
+]
 
 app.add_middleware(
     CORSMiddleware,
