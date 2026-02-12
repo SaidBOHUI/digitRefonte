@@ -26,11 +26,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-allowed_origins = [
-    "https://digiteye.sbohui.fr",
-    "http://localhost:5173",
-]
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
