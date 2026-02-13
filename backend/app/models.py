@@ -15,4 +15,5 @@ class Drawing(Base):
     predicted_digit = Column(Integer, nullable=False)
     confidence = Column(Float, nullable=False)
     probabilities = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    # created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+	created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
