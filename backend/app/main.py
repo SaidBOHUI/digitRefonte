@@ -13,7 +13,6 @@ async def lifespan(app: FastAPI):
     # Startup: load model + create tables
     load_model(settings.MODEL_PATH)
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     print("Database tables created")
     yield
